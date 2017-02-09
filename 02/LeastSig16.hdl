@@ -1,0 +1,12 @@
+CHIP LeastSig16 {
+	IN
+	in[16];
+
+	OUT
+	out;
+
+	PARTS:
+
+	Not(in=in[0],out=out1);
+	Not(in=out1,out=out);
+}
