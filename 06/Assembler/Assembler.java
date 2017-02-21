@@ -6,57 +6,86 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Created by kyle.l.harris on 2/19/17.
- */
+
 public class Assembler {
 
+    private static SymbolTable symbolTable = new SymbolTable();
+
     public static void main(String[] args) {
-        if (args[0] == null) {
-            System.out.println("Usage: Assembler file.asm");
-            return;
-        }
 
         String fileName = args[0];
+        List<String> translatedOutput;
 
-        if (!fileName.substring(fileName.length() - 4).equals(".asm")) {
-            System.out.println("Please enter a valid file of extension .asm");
+        try {
+            validateInput(fileName);
+            buildSymbolTable(fileName);
+            translatedOutput = translateAsmToBinary(fileName);
+        } catch (IllegalArgumentException e) {
+            System.out.println(e.getMessage());
             return;
         }
 
+        writeOutputFile(fileName.replace(".asm", ".hack"), translatedOutput);
+    }
+
+    private static void validateInput(String filename) throws IllegalArgumentException {
+        if (filename == null) {
+            throw new IllegalArgumentException("Usage: Assembler file.asm");
+        }
+        if (!filename.substring(filename.length() - 4).equals(".asm")) {
+            throw new IllegalArgumentException("Please enter a valid file of extension .asm");
+        }
+    }
+
+    private static void buildSymbolTable(String fileName) throws IllegalArgumentException {
+        int currentLine = -1;
         Parser parser = Parser.get(fileName);
-
-        List<String> outputLines = new ArrayList<>();
-
         while (parser.hasMoreCommands()) {
             parser.advance();
-            try {
-                outputLines.add(translatedAsm(parser));
-            } catch (IllegalArgumentException e) {
-                System.out.println(e.getMessage());
-                return;
+            currentLine++;
+            if (parser.commandType() == Parser.CommandType.L_COMMAND) {
+                symbolTable.addEntry(parser.symbol(), currentLine);
+                // skips the label line for the count
+                currentLine--;
             }
         }
+    }
 
-        writeOutputFile(fileName.replace(".asm", ".hack"), outputLines);
-
-        System.out.println("New file generated: " + fileName.replace(".asm", ".hack"));
+    private static List<String> translateAsmToBinary(String fileName) throws IllegalArgumentException {
+        List<String> outputLines = new ArrayList<>();
+        Parser parser = Parser.get(fileName);
+        while (parser.hasMoreCommands()) {
+            parser.advance();
+            if (parser.commandType() == Parser.CommandType.L_COMMAND) {
+                continue;
+            }
+            outputLines.add(translatedAsm(parser));
+        }
+        return outputLines;
     }
 
     private static String translatedAsm(Parser parser) throws IllegalArgumentException {
         StringBuilder result = new StringBuilder();
         if (parser.commandType() == Parser.CommandType.A_COMMAND) {
             result.append("0");
-            result.append(convertToPaddedBinary(Integer.parseInt(parser.symbol())));
+            result.append(getSymbolValueOrConstant(parser.symbol()));
         } else if (parser.commandType() == Parser.CommandType.C_COMMAND) {
             result.append("111");
             result.append(Code.get().comp(parser.comp()));
             result.append(Code.get().dest(parser.dest()));
             result.append(Code.get().jump(parser.jump()));
-        } else {
-            result.append("L_COMMAND");
         }
         return result.toString();
+    }
+
+    private static String getSymbolValueOrConstant(String symbol) {
+        if (symbol.matches("^-?\\d+$")) {
+            return convertToPaddedBinary(Integer.parseInt(symbol));
+        }
+        if (!symbolTable.contains(symbol)) {
+            symbolTable.addEntry(symbol);
+        }
+        return convertToPaddedBinary(symbolTable.getAddress(symbol));
     }
 
     private static String convertToPaddedBinary(int i) {
@@ -71,5 +100,7 @@ public class Assembler {
         } catch (IOException e) {
             System.out.println("Error writing to file " + outFileName);
         }
+
+        System.out.println("New file generated: " + outFileName);
     }
 }

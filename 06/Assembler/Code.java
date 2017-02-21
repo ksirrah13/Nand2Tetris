@@ -1,9 +1,7 @@
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Created by kyle.l.harris on 2/20/17.
- */
+
 public class Code {
 
     private static Code instance = null;
@@ -64,7 +62,7 @@ public class Code {
         // when a = 0, always starts with 0
         compCode.put("0", "0101010");
         compCode.put("1", "0111111");
-        compCode.put("-1", "0101010");
+        compCode.put("-1", "0111010");
         compCode.put("D", "0001100");
         compCode.put("A", "0110000");
         compCode.put("!D", "0001101");

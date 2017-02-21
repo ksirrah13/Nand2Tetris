@@ -2,9 +2,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Scanner;
 
-/**
- * Created by kyle.l.harris on 2/19/17.
- */
+
 public class Parser {
 
     private Scanner reader;
