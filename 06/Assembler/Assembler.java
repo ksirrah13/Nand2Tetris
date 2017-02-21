@@ -13,7 +13,7 @@ public class Assembler {
 
     public static void main(String[] args) {
 
-        String fileName = args[0];
+        String fileName = args.length != 0 ? args[0] : null;
         List<String> translatedOutput;
 
         try {
@@ -79,7 +79,8 @@ public class Assembler {
     }
 
     private static String getSymbolValueOrConstant(String symbol) {
-        if (symbol.matches("^-?\\d+$")) {
+        // must be non-negative if constant
+        if (symbol.matches("^\\d+$")) {
             return convertToPaddedBinary(Integer.parseInt(symbol));
         }
         if (!symbolTable.contains(symbol)) {
@@ -89,6 +90,7 @@ public class Assembler {
     }
 
     private static String convertToPaddedBinary(int i) {
+        // always non-negative values
         return String.format("%15s", Integer.toBinaryString(i)).replace(' ', '0');
     }
 
