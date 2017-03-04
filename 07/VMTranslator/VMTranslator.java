@@ -16,6 +16,8 @@ public class VMTranslator {
 
         String filePath = args.length != 0 ? args[0] : null;
 
+        boolean addComments = args.length > 1 && args[1].equals("t");
+
         if (filePath == null) {
             System.out.println("Usage: VMTranslator file.vm or directory");
             return;
@@ -28,7 +30,7 @@ public class VMTranslator {
             List<String> fileOutput;
             try {
                 validateInput(path);
-                fileOutput = translateVMtoAsm(path);
+                fileOutput = translateVMtoAsm(path, addComments);
             } catch (IllegalArgumentException e) {
                 System.out.println(e.getMessage());
                 return;
@@ -68,19 +70,35 @@ public class VMTranslator {
         }
     }
 
-    private static List<String> translateVMtoAsm(String filePath) throws IllegalArgumentException {
+    private static List<String> translateVMtoAsm(String filePath, boolean addComments) throws IllegalArgumentException {
         List<String> outputLines = new ArrayList<>();
         VMParser parser = VMParser.get(filePath);
         // necessary for static segment
         String name = fileNameFromPath(filePath);
+        if (addComments) {
+            outputLines.add("// --------------------");
+            outputLines.add("// file: " + name);
+            outputLines.add("// --------------------");
+        }
         while (parser.hasMoreCommands()) {
             parser.advance();
             switch (parser.commandType()) {
                 case C_ARITHMETIC:
+                    if (addComments) {
+                        outputLines.add("// " + parser.arg1());
+                    }
                     outputLines.addAll(VMCode.getArithmetic(parser.arg1()));
                     break;
                 case C_PUSH:
+                    if (addComments) {
+                        outputLines.add("// push " + parser.arg1() + " " + parser.arg2());
+                    }
+                    outputLines.addAll(VMCode.getPushPop(parser.commandType(), parser.arg1(), parser.arg2(), name));
+                    break;
                 case C_POP:
+                    if (addComments) {
+                        outputLines.add("// pop " + parser.arg1() + " " + parser.arg2());
+                    }
                     outputLines.addAll(VMCode.getPushPop(parser.commandType(), parser.arg1(), parser.arg2(), name));
                     break;
             }
