@@ -25,6 +25,7 @@ public class VMTranslator {
 
         List<String> filePaths = getFilesToProcess(filePath);
         List<String> translatedOutput = new ArrayList<>();
+        translatedOutput.addAll(VMCode.getInit());
 
         for (String path : filePaths) {
             List<String> fileOutput;
@@ -82,28 +83,92 @@ public class VMTranslator {
         }
         while (parser.hasMoreCommands()) {
             parser.advance();
+            addDebugComments(addComments, parser, outputLines);
             switch (parser.commandType()) {
-                case C_ARITHMETIC:
-                    if (addComments) {
-                        outputLines.add("// " + parser.arg1());
-                    }
+                case C_ARITHMETIC: {
                     outputLines.addAll(VMCode.getArithmetic(parser.arg1()));
                     break;
-                case C_PUSH:
-                    if (addComments) {
-                        outputLines.add("// push " + parser.arg1() + " " + parser.arg2());
-                    }
+                }
+                case C_PUSH: {
                     outputLines.addAll(VMCode.getPushPop(parser.commandType(), parser.arg1(), parser.arg2(), name));
                     break;
-                case C_POP:
-                    if (addComments) {
-                        outputLines.add("// pop " + parser.arg1() + " " + parser.arg2());
-                    }
+                }
+                case C_POP: {
                     outputLines.addAll(VMCode.getPushPop(parser.commandType(), parser.arg1(), parser.arg2(), name));
                     break;
+                }
+                case C_LABEL: {
+                    outputLines.addAll(VMCode.getLabel(parser.arg1(), name));
+                    break;
+                }
+                case C_GOTO: {
+                    outputLines.addAll(VMCode.getGoto(parser.arg1(), name));
+                    break;
+                }
+                case C_IF: {
+                    outputLines.addAll(VMCode.getIf(parser.arg1(), name));
+                    break;
+                }
+                case C_FUNCTION: {
+                    outputLines.addAll(VMCode.getFunction(parser.arg1(), parser.arg2()));
+                    break;
+                }
+                case C_CALL: {
+                    outputLines.addAll(VMCode.getCall(parser.arg1(), parser.arg2()));
+                    break;
+                }
+                case C_RETURN: {
+                    outputLines.addAll(VMCode.getReturn());
+                    break;
+                }
             }
         }
         return outputLines;
+    }
+
+    private static void addDebugComments(boolean addComments, VMParser parser, List<String> outputLines) {
+        if (!addComments) {
+            return;
+        }
+
+        switch (parser.commandType()) {
+            case C_ARITHMETIC: {
+                outputLines.add("// " + parser.arg1());
+                break;
+            }
+            case C_PUSH: {
+                outputLines.add("// push " + parser.arg1() + " " + parser.arg2());
+                break;
+            }
+            case C_POP: {
+                outputLines.add("// pop " + parser.arg1() + " " + parser.arg2());
+                break;
+            }
+            case C_LABEL: {
+                outputLines.add("// label " + parser.arg1());
+                break;
+            }
+            case C_GOTO: {
+                outputLines.add("// goto " + parser.arg1());
+                break;
+            }
+            case C_IF: {
+                outputLines.add("// if-goto " + parser.arg1());
+                break;
+            }
+            case C_FUNCTION: {
+                outputLines.add("// function " + parser.arg1() + " " + parser.arg2());
+                break;
+            }
+            case C_CALL: {
+                outputLines.add("// call " + parser.arg1() + " " + parser.arg2());
+                break;
+            }
+            case C_RETURN: {
+                outputLines.add("// return");
+                break;
+            }
+        }
     }
 
     private static String fileNameFromPath(String filePath) {
