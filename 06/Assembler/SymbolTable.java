@@ -46,4 +46,8 @@ class SymbolTable {
     int getAddress(String symbol) {
         return table.get(symbol);
     }
+
+    void clear() {
+        table.clear();
+    }
 }

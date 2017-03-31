@@ -1,77 +1,52 @@
 import java.io.File;
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
-public class VMTranslator {
+public class VMTranslator extends AbstractTranslator {
+
+    private static VMTranslator INSTANCE = new VMTranslator();
+
+    private VMTranslator() {
+    }
+
+    public static VMTranslator get() {
+        return INSTANCE;
+    }
 
     public static void main(String[] args) {
-
-        String filePath = args.length != 0 ? args[0] : null;
-
-        boolean addComments = args.length > 1 && args[1].equals("t");
-
-        if (filePath == null) {
-            System.out.println("Usage: VMTranslator file.vm or directory");
-            return;
-        }
-
-        List<String> filePaths = getFilesToProcess(filePath);
-        List<String> translatedOutput = new ArrayList<>();
-        translatedOutput.addAll(VMCode.getInit());
-
-        for (String path : filePaths) {
-            List<String> fileOutput;
-            try {
-                validateInput(path);
-                fileOutput = translateVMtoAsm(path, addComments);
-            } catch (IllegalArgumentException e) {
-                System.out.println(e.getMessage());
-                return;
-            }
-            translatedOutput.addAll(fileOutput);
-        }
-
-        writeOutputFile(newFileName(filePath), translatedOutput);
+        get().run(args);
     }
 
-    private static List<String> getFilesToProcess(String filePath) {
-        List<String> files = new ArrayList<>();
-        if (filePath.substring(filePath.length() - 3).equals(".vm")) {
-            files.add(filePath);
-        } else {
-            // path is a directory
-            files.addAll(getAllFileNames(filePath));
-        }
-        return files;
+    @Override
+    protected boolean combineOutput() {
+        return true;
     }
 
-    private static List<String> getAllFileNames(String directory) {
-        File dir = new File(directory);
-        if (dir.isDirectory() && dir.listFiles() != null ) {
-            //noinspection ConstantConditions
-            return Arrays.stream(dir.listFiles())
-                    .map(File::getName)
-                    .map(name -> directory + "/" + name)
-                    .collect(Collectors.toList());
-        }
-        return Collections.emptyList();
+    @Override
+    protected void preFileProcessing(String filePath) {}
+
+    @Override
+    protected String getNewExtension() {
+        return ".asm";
     }
 
-    private static void validateInput(String filePath) throws IllegalArgumentException {
-        if (!filePath.substring(filePath.length() - 3).equals(".vm")) {
-            throw new IllegalArgumentException("Please enter only valid files of extension .vm");
-        }
+    @Override
+    protected String getOldExtension() {
+        return ".vm";
     }
 
-    private static List<String> translateVMtoAsm(String filePath, boolean addComments) throws IllegalArgumentException {
+    @Override
+    protected List<String> preTranslation() {
+        return VMCode.getInit();
+    }
+
+    @Override
+    protected String getFileNullMessage() {
+        return "Usage: VMTranslator file.vm or directory";
+    }
+
+    @Override
+    protected List<String> translate(String filePath, boolean addComments) throws IllegalArgumentException {
         List<String> outputLines = new ArrayList<>();
         VMParser parser = VMParser.get(filePath);
         // necessary for static segment
@@ -126,7 +101,7 @@ public class VMTranslator {
         return outputLines;
     }
 
-    private static void addDebugComments(boolean addComments, VMParser parser, List<String> outputLines) {
+    private void addDebugComments(boolean addComments, VMParser parser, List<String> outputLines) {
         if (!addComments) {
             return;
         }
@@ -171,28 +146,8 @@ public class VMTranslator {
         }
     }
 
-    private static String fileNameFromPath(String filePath) {
+    private String fileNameFromPath(String filePath) {
         String name = new File(filePath).getName();
-        return name.substring(0 , name.length() - 3);
-    }
-
-    private static String newFileName(String filePath) {
-        if (filePath.substring(filePath.length() - 3).equals(".vm")) {
-            return filePath.replace(".vm", ".asm");
-        }
-        return filePath + ".asm";
-    }
-
-    private static void writeOutputFile(String outFileName, List<String> outputLines) {
-        Path fileOut = Paths.get(outFileName);
-
-        try {
-            Files.write(fileOut, outputLines, Charset.forName("UTF-8"));
-        } catch (IOException e) {
-            System.out.println("Error writing to file " + outFileName);
-            return;
-        }
-
-        System.out.println("New file generated: " + outFileName);
+        return name.substring(0, name.length() - 3);
     }
 }

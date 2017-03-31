@@ -1,40 +1,67 @@
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 
-public class Assembler {
+public class Assembler extends AbstractTranslator {
 
     private static SymbolTable symbolTable = new SymbolTable();
+    private static Assembler INSTANCE = new Assembler();
 
-    public static void main(String[] args) {
-
-        String fileName = args.length != 0 ? args[0] : null;
-        List<String> translatedOutput;
-
-        try {
-            validateInput(fileName);
-            buildSymbolTable(fileName);
-            translatedOutput = translateAsmToBinary(fileName);
-        } catch (IllegalArgumentException e) {
-            System.out.println(e.getMessage());
-            return;
-        }
-
-        writeOutputFile(fileName.replace(".asm", ".hack"), translatedOutput);
+    private Assembler() {
     }
 
-    private static void validateInput(String filename) throws IllegalArgumentException {
-        if (filename == null) {
-            throw new IllegalArgumentException("Usage: Assembler file.asm");
+    public static Assembler get() {
+        return INSTANCE;
+    }
+
+    public static void main(String[] args) {
+        get().run(args);
+    }
+
+    @Override
+    protected String getNewExtension() {
+        return ".hack";
+    }
+
+    @Override
+    protected String getOldExtension() {
+        return ".asm";
+    }
+
+    @Override
+    protected List<String> preTranslation() {
+        return Collections.emptyList();
+    }
+
+    @Override
+    protected String getFileNullMessage() {
+        return "Usage: Assembler file.asm or directory";
+    }
+
+    @Override
+    protected List<String> translate(String path, boolean addComments) {
+        List<String> outputLines = new ArrayList<>();
+        Parser parser = Parser.get(path);
+        while (parser.hasMoreCommands()) {
+            parser.advance();
+            if (parser.commandType() == Parser.CommandType.L_COMMAND) {
+                continue;
+            }
+            outputLines.add(translatedAsm(parser));
         }
-        if (!filename.substring(filename.length() - 4).equals(".asm")) {
-            throw new IllegalArgumentException("Please enter a valid file of extension .asm");
-        }
+        return outputLines;
+    }
+
+    @Override
+    protected boolean combineOutput() {
+        return false;
+    }
+
+    @Override
+    protected void preFileProcessing(String filename) throws IllegalArgumentException {
+        symbolTable.clear();
+        buildSymbolTable(filename);
     }
 
     private static void buildSymbolTable(String fileName) throws IllegalArgumentException {
@@ -49,19 +76,6 @@ public class Assembler {
                 currentLine--;
             }
         }
-    }
-
-    private static List<String> translateAsmToBinary(String fileName) throws IllegalArgumentException {
-        List<String> outputLines = new ArrayList<>();
-        Parser parser = Parser.get(fileName);
-        while (parser.hasMoreCommands()) {
-            parser.advance();
-            if (parser.commandType() == Parser.CommandType.L_COMMAND) {
-                continue;
-            }
-            outputLines.add(translatedAsm(parser));
-        }
-        return outputLines;
     }
 
     private static String translatedAsm(Parser parser) throws IllegalArgumentException {
@@ -92,17 +106,5 @@ public class Assembler {
     private static String convertToPaddedBinary(int i) {
         // always non-negative values
         return String.format("%15s", Integer.toBinaryString(i)).replace(' ', '0');
-    }
-
-    private static void writeOutputFile(String outFileName, List<String> outputLines) {
-        Path fileOut = Paths.get(outFileName);
-
-        try {
-            Files.write(fileOut, outputLines, Charset.forName("UTF-8"));
-        } catch (IOException e) {
-            System.out.println("Error writing to file " + outFileName);
-        }
-
-        System.out.println("New file generated: " + outFileName);
     }
 }

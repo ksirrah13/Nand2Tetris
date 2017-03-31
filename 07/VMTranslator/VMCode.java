@@ -341,13 +341,13 @@ public class VMCode {
             }
             case "temp": {
                 block.add("@R5");
-                block.add("A=A+D");
+                block.add("A=D+A");
                 block.add("D=M");
                 return block;
             }
             case "pointer": {
                 block.add("@THIS");
-                block.add("A=A+D");
+                block.add("A=D+A");
                 block.add("D=M");
                 return block;
             }
@@ -356,7 +356,7 @@ public class VMCode {
             }
         }
 
-        block.add("A=M+D");
+        block.add("A=D+M");
         block.add("D=M");
 
         return block;
@@ -401,13 +401,13 @@ public class VMCode {
             }
             case "temp": {
                 block.add("@R5");
-                block.add("D=A+D");
+                block.add("D=D+A");
                 block.addAll(storeAtAddressD());
                 return block;
             }
             case "pointer": {
                 block.add("@THIS");
-                block.add("D=A+D");
+                block.add("D=D+A");
                 block.addAll(storeAtAddressD());
                 return block;
             }
@@ -416,7 +416,7 @@ public class VMCode {
             }
         }
 
-        block.add("D=M+D");
+        block.add("D=D+M");
         block.addAll(storeAtAddressD());
 
         return block;
