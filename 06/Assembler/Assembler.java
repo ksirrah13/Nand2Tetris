@@ -3,7 +3,7 @@ import java.util.Collections;
 import java.util.List;
 
 
-public class Assembler extends AbstractTranslator {
+class Assembler extends AbstractTranslator {
 
     private static SymbolTable symbolTable = new SymbolTable();
     private static Assembler INSTANCE = new Assembler();
@@ -43,7 +43,7 @@ public class Assembler extends AbstractTranslator {
     protected List<String> translate(String path, boolean addComments) {
         List<String> outputLines = new ArrayList<>();
         Parser parser = Parser.get(path);
-        while (parser.hasMoreCommands()) {
+        while (parser.hasMore()) {
             parser.advance();
             if (parser.commandType() == Parser.CommandType.L_COMMAND) {
                 continue;
@@ -67,12 +67,12 @@ public class Assembler extends AbstractTranslator {
     private static void buildSymbolTable(String fileName) throws IllegalArgumentException {
         int currentLine = -1;
         Parser parser = Parser.get(fileName);
-        while (parser.hasMoreCommands()) {
+        while (parser.hasMore()) {
             parser.advance();
             currentLine++;
             if (parser.commandType() == Parser.CommandType.L_COMMAND) {
                 symbolTable.addEntry(parser.symbol(), currentLine);
-                // skips the label line for the count
+                // skips the label token for the count
                 currentLine--;
             }
         }

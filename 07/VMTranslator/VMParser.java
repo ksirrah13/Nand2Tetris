@@ -1,63 +1,40 @@
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Scanner;
 
-class VMParser {
-
-    private Scanner reader;
-    private String line = "";
+class VMParser extends AbstractParser {
 
     private List<String> arithmeticOps = Arrays.asList("add","sub","neg","eq","gt","lt","and","or","not");
 
-    private VMParser(Scanner scanner) {
-        this.reader = scanner;
+    private VMParser(String file) {
+        super(file);
     }
 
-    static VMParser get(String in) {
-        try {
-            Scanner scanner = new Scanner(new File(in));
-            return new VMParser(scanner);
-        } catch (FileNotFoundException fnf) {
-            System.out.println("ERROR: No file " + in);
-        }
-        return new VMParser(null);
+    static VMParser get(String file) {
+       return new VMParser(file);
     }
 
-    boolean hasMoreCommands() {
-        return reader.hasNext();
+    @Override
+    protected void removeWhitespace() {
+        token = token.trim().replaceAll(" +", " ");
     }
 
-    void advance() {
-        if (!hasMoreCommands()) {
-            throw new UnsupportedOperationException("Can't advance with no more commands");
-        }
-        line = reader.nextLine();
-        removeComments();
-        removeWhitespace();
-        while (hasMoreCommands() && line.isEmpty()) {
-            line = reader.nextLine();
-            removeComments();
-            removeWhitespace();
-        }
+    @Override
+    protected String nextToken() {
+        return reader.nextLine();
     }
 
-    private void removeWhitespace() {
-        line = line.trim().replaceAll(" +", " ");
-    }
-
-    private void removeComments() {
-        if (line.contains("//")) {
-            line = line.substring(0, line.indexOf("//"));
+    @Override
+    protected void removeComments() {
+        if (token.contains("//")) {
+            token = token.substring(0, token.indexOf("//"));
         }
     }
 
     CommandType commandType() {
-        if (line.isEmpty()) {
-            throw new UnsupportedOperationException("Can't call commandType on empty line");
+        if (token.isEmpty()) {
+            throw new UnsupportedOperationException("Can't call commandType on empty token");
         }
-        String firstWord = nthWord(line, 1);
+        String firstWord = nthWord(token, 1);
         if (arithmeticOps.contains(firstWord)) {
             return CommandType.C_ARITHMETIC;
         }
@@ -75,26 +52,26 @@ class VMParser {
     }
 
     String arg1() {
-        if (line.isEmpty()) {
-            throw new UnsupportedOperationException("Can't call arg1 on empty line");
+        if (token.isEmpty()) {
+            throw new UnsupportedOperationException("Can't call arg1 on empty token");
         }
         if (commandType() == CommandType.C_RETURN) {
             throw new UnsupportedOperationException("Can't call arg1 on return command");
         }
         if (commandType() == CommandType.C_ARITHMETIC) {
-            return nthWord(line, 1);
+            return nthWord(token, 1);
         }
-        return nthWord(line, 2);
+        return nthWord(token, 2);
     }
 
     String arg2() {
-        if (line.isEmpty()) {
-            throw new UnsupportedOperationException("Can't call arg2 on empty line");
+        if (token.isEmpty()) {
+            throw new UnsupportedOperationException("Can't call arg2 on empty token");
         }
         if (invalidForArg2(commandType())) {
             throw new UnsupportedOperationException("Invalid arg2 call for command type");
         }
-        return nthWord(line, 3);
+        return nthWord(token, 3);
     }
 
     private String nthWord(String line, int n) {

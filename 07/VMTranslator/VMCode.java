@@ -2,7 +2,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class VMCode {
+class VMCode {
 
     private static int resume = 0;
     private static int functionCall = 0;

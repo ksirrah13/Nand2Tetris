@@ -2,7 +2,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-public class VMTranslator extends AbstractTranslator {
+class VMTranslator extends AbstractTranslator {
 
     private static VMTranslator INSTANCE = new VMTranslator();
 
@@ -56,7 +56,7 @@ public class VMTranslator extends AbstractTranslator {
             outputLines.add("// file: " + name);
             outputLines.add("// --------------------");
         }
-        while (parser.hasMoreCommands()) {
+        while (parser.hasMore()) {
             parser.advance();
             addDebugComments(addComments, parser, outputLines);
             switch (parser.commandType()) {

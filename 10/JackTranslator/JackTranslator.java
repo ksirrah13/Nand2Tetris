@@ -1,7 +1,7 @@
 import java.util.Collections;
 import java.util.List;
 
-public class JackTranslator extends AbstractTranslator {
+class JackTranslator extends AbstractTranslator {
 
     private JackTranslator() {}
 

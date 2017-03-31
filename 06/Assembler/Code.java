@@ -2,7 +2,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 
-public class Code {
+class Code {
 
     private static Code instance = null;
 
