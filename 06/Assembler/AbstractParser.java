@@ -5,7 +5,6 @@ import java.util.Scanner;
 abstract class AbstractParser {
 
     protected Scanner reader = null;
-    protected String token = "";
 
     AbstractParser(String file) {
         try {
@@ -15,29 +14,26 @@ abstract class AbstractParser {
         }
     }
 
-    boolean hasMore() {
-        return reader.hasNext();
-    }
-
     protected void advance() {
         if (!hasMore()) {
-            throw new UnsupportedOperationException("Can't advance with no more commands");
+            throw new UnsupportedOperationException("Can't advance with no more tokens");
         }
         next();
-        while (hasMore() && token.isEmpty()) {
+        while (hasMore() && tokenEmpty()) {
             next();
         }
     }
 
-    private void next() {
-        token = nextToken();
-        removeComments();
-        removeWhitespace();
+    protected String removeLineComments(String line) {
+        if (line.contains("//")) {
+            return line.substring(0, line.indexOf("//"));
+        }
+        return line;
     }
 
-    protected abstract String nextToken();
+    protected abstract void next();
 
-    protected abstract void removeWhitespace();
+    protected abstract boolean hasMore();
 
-    protected abstract void removeComments();
+    protected abstract boolean tokenEmpty();
 }

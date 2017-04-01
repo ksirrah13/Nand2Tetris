@@ -3,6 +3,7 @@ import java.util.List;
 
 class VMParser extends AbstractParser {
 
+    protected String line;
     private List<String> arithmeticOps = Arrays.asList("add","sub","neg","eq","gt","lt","and","or","not");
 
     private VMParser(String file) {
@@ -14,27 +15,35 @@ class VMParser extends AbstractParser {
     }
 
     @Override
-    protected void removeWhitespace() {
-        token = token.trim().replaceAll(" +", " ");
+    protected boolean hasMore() {
+        return reader.hasNext();
     }
 
     @Override
-    protected String nextToken() {
-        return reader.nextLine();
+    protected boolean tokenEmpty() {
+        return line.isEmpty();
     }
 
     @Override
-    protected void removeComments() {
-        if (token.contains("//")) {
-            token = token.substring(0, token.indexOf("//"));
-        }
+    protected void next() {
+        line = reader.nextLine();
+        removeComments();
+        removeWhitespace();
+    }
+
+    private void removeComments() {
+        line = removeLineComments(line);
+    }
+
+    private void removeWhitespace() {
+        line = line.trim().replaceAll(" +", " ");
     }
 
     CommandType commandType() {
-        if (token.isEmpty()) {
-            throw new UnsupportedOperationException("Can't call commandType on empty token");
+        if (line.isEmpty()) {
+            throw new UnsupportedOperationException("Can't call commandType on empty line");
         }
-        String firstWord = nthWord(token, 1);
+        String firstWord = nthWord(line, 1);
         if (arithmeticOps.contains(firstWord)) {
             return CommandType.C_ARITHMETIC;
         }
@@ -52,26 +61,26 @@ class VMParser extends AbstractParser {
     }
 
     String arg1() {
-        if (token.isEmpty()) {
-            throw new UnsupportedOperationException("Can't call arg1 on empty token");
+        if (line.isEmpty()) {
+            throw new UnsupportedOperationException("Can't call arg1 on empty line");
         }
         if (commandType() == CommandType.C_RETURN) {
             throw new UnsupportedOperationException("Can't call arg1 on return command");
         }
         if (commandType() == CommandType.C_ARITHMETIC) {
-            return nthWord(token, 1);
+            return nthWord(line, 1);
         }
-        return nthWord(token, 2);
+        return nthWord(line, 2);
     }
 
     String arg2() {
-        if (token.isEmpty()) {
-            throw new UnsupportedOperationException("Can't call arg2 on empty token");
+        if (line.isEmpty()) {
+            throw new UnsupportedOperationException("Can't call arg2 on empty line");
         }
         if (invalidForArg2(commandType())) {
             throw new UnsupportedOperationException("Invalid arg2 call for command type");
         }
-        return nthWord(token, 3);
+        return nthWord(line, 3);
     }
 
     private String nthWord(String line, int n) {

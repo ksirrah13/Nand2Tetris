@@ -1,5 +1,7 @@
 class Parser extends AbstractParser {
 
+    protected String line;
+
     private Parser(String file) {
         super(file);
     }
@@ -9,30 +11,38 @@ class Parser extends AbstractParser {
     }
 
     @Override
-    protected void removeWhitespace() {
-        token = token.replaceAll("\\s", "");
+    protected boolean hasMore() {
+        return reader.hasNext();
     }
 
     @Override
-    protected String nextToken() {
-        return reader.nextLine();
+    protected boolean tokenEmpty() {
+        return line.isEmpty();
     }
 
     @Override
-    protected void removeComments() {
-        if (token.contains("//")) {
-            token = token.substring(0, token.indexOf("//"));
-        }
+    protected void next() {
+        line = reader.nextLine();
+        removeComments();
+        removeWhitespace();
+    }
+
+    private void removeWhitespace() {
+        line = line.replaceAll("\\s", "");
+    }
+
+    private void removeComments() {
+        line = removeLineComments(line);
     }
 
     CommandType commandType() {
-        if (token.isEmpty()) {
-            throw new UnsupportedOperationException("Can't call commandType on empty token");
+        if (line.isEmpty()) {
+            throw new UnsupportedOperationException("Can't call commandType on empty line");
         }
-        if (token.charAt(0) == '@') {
+        if (line.charAt(0) == '@') {
             return CommandType.A_COMMAND;
         }
-        if (token.charAt(0) == '(') {
+        if (line.charAt(0) == '(') {
             return CommandType.L_COMMAND;
         }
         return CommandType.C_COMMAND;
@@ -43,10 +53,10 @@ class Parser extends AbstractParser {
             throw new UnsupportedOperationException("Can't call symbol on C Commands");
         }
         if (commandType() == CommandType.A_COMMAND) {
-            return token.substring(1);
+            return line.substring(1);
         }
         if (commandType() == CommandType.L_COMMAND) {
-            return token.substring(1, token.length() - 1);
+            return line.substring(1, line.length() - 1);
         }
         // should never go here
         return "";
@@ -56,29 +66,29 @@ class Parser extends AbstractParser {
         if (commandType() != CommandType.C_COMMAND) {
             throw new UnsupportedOperationException("dest can only be called on C Commands");
         }
-        if (!token.contains("=")) {
+        if (!line.contains("=")) {
             return "";
         }
-        return token.substring(0, token.indexOf('='));
+        return line.substring(0, line.indexOf('='));
     }
 
     String comp() {
         if (commandType() != CommandType.C_COMMAND) {
             throw new UnsupportedOperationException("comp can only be called on C Commands");
         }
-        int start = token.contains("=") ? token.indexOf('=') + 1 : 0;
-        int end = token.contains(";") ? token.indexOf(';') : token.length();
-        return token.substring(start, end);
+        int start = line.contains("=") ? line.indexOf('=') + 1 : 0;
+        int end = line.contains(";") ? line.indexOf(';') : line.length();
+        return line.substring(start, end);
     }
 
     String jump() {
         if (commandType() != CommandType.C_COMMAND) {
             throw new UnsupportedOperationException("jump can only be called on C Commands");
         }
-        if (!token.contains(";")) {
+        if (!line.contains(";")) {
             return "";
         }
-        return token.substring(token.indexOf(';') + 1);
+        return line.substring(line.indexOf(';') + 1);
     }
 
     enum CommandType {

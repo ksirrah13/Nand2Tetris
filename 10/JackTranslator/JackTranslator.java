@@ -37,7 +37,9 @@ class JackTranslator extends AbstractTranslator {
 
     @Override
     protected List<String> translate(String path, boolean addComments) {
-        return Collections.emptyList();
+        JackTokenizer tokenizer = JackTokenizer.get(path);
+        CompilationEngine compiler = CompilationEngine.get(tokenizer);
+        return compiler.compile();
     }
 
     @Override

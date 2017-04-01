@@ -72,7 +72,7 @@ class Assembler extends AbstractTranslator {
             currentLine++;
             if (parser.commandType() == Parser.CommandType.L_COMMAND) {
                 symbolTable.addEntry(parser.symbol(), currentLine);
-                // skips the label token for the count
+                // skips the label line for the count
                 currentLine--;
             }
         }
