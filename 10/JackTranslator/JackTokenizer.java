@@ -6,6 +6,7 @@ class JackTokenizer extends AbstractParser {
 
     private String currentLine = "";
     private Token currentToken = null;
+    private Token nextToken = null;
     private boolean insideBlockComment = false;
 
     private JackTokenizer(String file) {
@@ -33,7 +34,7 @@ class JackTokenizer extends AbstractParser {
 
     @Override
     protected boolean hasMore() {
-        return !currentLine.isEmpty() || reader.hasNext();
+        return nextToken != null || !currentLine.isEmpty() || reader.hasNext();
     }
 
     @Override
@@ -43,6 +44,9 @@ class JackTokenizer extends AbstractParser {
 
     @Override
     protected void next() {
+        currentToken = nextToken;
+        nextToken = null;
+
         while (currentLine.isEmpty() && reader.hasNext()) {
             currentLine = reader.nextLine().trim();
             handleBlockComments();
@@ -56,7 +60,7 @@ class JackTokenizer extends AbstractParser {
         for (TokenIdentifier id : TokenIdentifier.values()) {
             Matcher test = id.getPattern().matcher(currentLine);
             if (test.find()) {
-                currentToken = new Token(test.group(), id);
+                nextToken = new Token(test.group(), id);
                 currentLine = currentLine.substring(test.end());
                 currentLine = currentLine.trim();
                 return;
@@ -139,8 +143,8 @@ class JackTokenizer extends AbstractParser {
         return quotedString.substring(1, quotedString.length() -1);
     }
 
-    protected String getToken() {
-        return currentToken.getMatched();
+    protected String peekToken() {
+        return nextToken.getMatched();
     }
 
     protected String getXml() {

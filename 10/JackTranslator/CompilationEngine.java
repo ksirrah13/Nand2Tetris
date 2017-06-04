@@ -26,19 +26,11 @@ class CompilationEngine {
         return start(tokenizer.getXml()) + " " + inner + " " + end(tokenizer.getXml());
     }
 
-    private String wrappedType() {
-        if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.KEYWORD) {
-            return wrap(tokenizer.keyword());
-        } else {
-            return wrap(tokenizer.identifier());
-        }
-    }
-
     private void validateKeyword(String keyword) {
         tokenizer.advance();
         if (tokenizer.tokenType() != JackTokenizer.TokenIdentifier.KEYWORD ||
                 !tokenizer.keyword().equals(keyword)) {
-            throw new IllegalArgumentException("Syntax Error: Expected keyword " + keyword + " but found: " + tokenizer.getToken());
+            throw new IllegalArgumentException("Syntax Error: Expected keyword " + keyword + " but found: " + tokenizer.keyword());
         }
     }
 
@@ -144,6 +136,45 @@ class CompilationEngine {
                 tokenizer.symbol().equals("(");
     }
 
+    private void wrapOutput(List<String> output, String tag) {
+        output.add(0, start(tag));
+        output.add(end(tag));
+    }
+
+    private String cKeyword() {
+        return wrap(tokenizer.keyword());
+    }
+
+    private String cIdentifier() {
+        return wrap(tokenizer.identifier());
+    }
+
+    private String cSymbol() {
+        String symbol = tokenizer.symbol();
+        if (symbol.equals("<")) {
+            symbol = "lt";
+        } else if (symbol.equals(">")) {
+            symbol = "gt";
+        }
+        return wrap(symbol);
+    }
+
+    private String cType() {
+        if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.KEYWORD) {
+            return cKeyword();
+        } else {
+            return cIdentifier();
+        }
+    }
+
+    private String cStringVal() {
+        return wrap(tokenizer.stringVal());
+    }
+
+    private String cIntVal() {
+        return wrap(tokenizer.intVal());
+    }
+
     List<String> compile() {
             validateKeyword("class");
             return compileClass();
@@ -151,14 +182,13 @@ class CompilationEngine {
 
     private List<String> compileClass() {
         List<String> output = new ArrayList<>();
-        output.add(start("class"));
-        output.add(wrap(tokenizer.keyword()));
+        output.add(cKeyword());
 
         validateIdentifier();
-        output.add(wrap(tokenizer.identifier()));
+        output.add(cIdentifier());
 
         validateSymbol("{");
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
         tokenizer.advance();
         while (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.KEYWORD &&
@@ -176,99 +206,96 @@ class CompilationEngine {
         }
 
         validateSymbolNoAdvance("}");
+        output.add(cSymbol());
 
-        output.add(end("class"));
+        wrapOutput(output, "class");
         return output;
     }
 
     private List<String> compileClassVarDec() {
         List<String> output = new ArrayList<>();
-        output.add(start("classVarDec"));
-        output.add(wrap(tokenizer.keyword()));
+        output.add(cKeyword());
 
         validateType();
-        output.add(wrappedType());
+        output.add(cType());
 
         validateIdentifier();
-        output.add(wrap(tokenizer.identifier()));
+        output.add(cIdentifier());
 
         tokenizer.advance();
         while (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.SYMBOL &&
                 tokenizer.symbol().equals(",")) {
-            output.add(wrap(tokenizer.symbol()));
+            output.add(cSymbol());
 
             validateIdentifier();
-            output.add(wrap(tokenizer.identifier()));
+            output.add(cIdentifier());
 
             tokenizer.advance();
         }
 
         validateSymbolNoAdvance(";");
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
-        output.add(end("classVarDec"));
+        wrapOutput(output, "classVarDec");
         return output;
     }
 
     private List<String> compileSubroutineDec() {
         List<String> output = new ArrayList<>();
-        output.add(start("subroutineDec"));
-        output.add(wrap(tokenizer.keyword()));
+        output.add(cKeyword());
 
         validateTypeAndVoid();
-        output.add(wrappedType());
+        output.add(cType());
 
         validateIdentifier();
-        output.add(wrap(tokenizer.identifier()));
+        output.add(cIdentifier());
 
         validateSymbol("(");
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
         tokenizer.advance();
         output.addAll(compileParameterList());
 
         validateSymbolNoAdvance(")");
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
         validateSymbol("{");
         output.addAll(compileSubroutineBody());
 
+        wrapOutput(output, "subroutineDec");
         return output;
     }
 
     private List<String> compileParameterList() {
         List<String> output = new ArrayList<>();
         if (isType()) {
-            output.add(start("parameterList"));
-
-            output.add(wrappedType());
+            output.add(cType());
 
             validateIdentifier();
-            output.add(wrap(tokenizer.identifier()));
+            output.add(cIdentifier());
 
             tokenizer.advance();
             while (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.SYMBOL &&
                     tokenizer.symbol().equals(",")) {
-                output.add(wrap(tokenizer.symbol()));
+                output.add(cSymbol());
 
                 validateType();
-                output.add(wrappedType());
+                output.add(cType());
 
                 validateIdentifier();
-                output.add(wrap(tokenizer.identifier()));
+                output.add(cIdentifier());
 
                 tokenizer.advance();
             }
 
-            output.add(end("parameterList"));
+            wrapOutput(output, "parameterList");
         }
         return output;
     }
 
     private List<String> compileSubroutineBody() {
         List<String> output = new ArrayList<>();
-        output.add(start("subroutineBody"));
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
         tokenizer.advance();
         while (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.KEYWORD &&
@@ -283,43 +310,41 @@ class CompilationEngine {
         }
 
         validateSymbolNoAdvance("}");
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
-        output.add(end("subroutineBody"));
+        wrapOutput(output, "subroutineBody");
         return output;
     }
 
     private List<String> compileVarDec() {
         List<String> output = new ArrayList<>();
-        output.add(start("varDec"));
-        output.add(wrap(tokenizer.keyword()));
+        output.add(cKeyword());
 
         validateType();
-        output.add(wrappedType());
+        output.add(cType());
 
         validateIdentifier();
-        output.add(wrap(tokenizer.identifier()));
+        output.add(cIdentifier());
 
         tokenizer.advance();
         while (isComma()) {
-            output.add(wrap(tokenizer.symbol()));
+            output.add(cSymbol());
 
             validateIdentifier();
-            output.add(wrap(tokenizer.identifier()));
+            output.add(cIdentifier());
 
             tokenizer.advance();
         }
 
         validateSymbolNoAdvance(";");
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
-        output.add(end("varDec"));
+        wrapOutput(output, "varDec");
         return output;
     }
 
     private List<String> compileStatements() {
         List<String> output = new ArrayList<>();
-        output.add(start("statements"));
 
         while (isStatement()) {
             switch (tokenizer.keyword()) {
@@ -350,53 +375,51 @@ class CompilationEngine {
             }
         }
 
-        output.add(end("statements"));
+        wrapOutput(output, "statements");
         return output;
     }
 
     private List<String> compileLetStatement() {
         List<String> output = new ArrayList<>();
-        output.add(start("letStatement"));
-        output.add(wrap(tokenizer.keyword()));
+        output.add(cKeyword());
 
         validateIdentifier();
-        output.add(wrap(tokenizer.identifier()));
+        output.add(cIdentifier());
 
         tokenizer.advance();
         if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.SYMBOL &&
                 tokenizer.symbol().equals("[")) {
-            output.add(wrap(tokenizer.symbol()));
+            output.add(cSymbol());
 
             validateTerm();
             output.addAll(compileExpression());
 
             validateSymbolNoAdvance("]");
-            output.add(wrap(tokenizer.symbol()));
+            output.add(cSymbol());
 
             tokenizer.advance();
         }
 
         validateSymbolNoAdvance("=");
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
         validateTerm();
         output.addAll(compileExpression());
 
         validateSymbolNoAdvance(";");
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
-        output.add(end("letStatement"));
+        wrapOutput(output, "letStatement");
         return output;
     }
 
     private List<String> compileExpression() {
         List<String> output = new ArrayList<>();
-        output.add(start("expression"));
         output.addAll(compileTerm());
 
         tokenizer.advance();
         while (isOp()) {
-            output.add(wrap(tokenizer.symbol()));
+            output.add(cSymbol());
 
             validateTerm();
             output.addAll(compileTerm());
@@ -404,56 +427,77 @@ class CompilationEngine {
             tokenizer.advance();
         }
 
-        output.add(end("expression"));
+        wrapOutput(output, "expression");
         return output;
     }
 
     private List<String> compileTerm() {
         List<String> output = new ArrayList<>();
-        output.add(start("term"));
 
         if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.INT_CONST) {
-            output.add(wrap(tokenizer.intVal()));
+            output.add(cIntVal());
         } else if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.STRING_CONST) {
-            output.add(wrap(tokenizer.stringVal()));
+            output.add(cStringVal());
         } else if (isKeywordConstant()) {
-            output.add(wrap(tokenizer.keyword()));
+            output.add(cKeyword());
         } else if (isOpenParen()) {
-            output.add(wrap(tokenizer.symbol()));
+            output.add(cSymbol());
 
             validateTerm();
             output.addAll(compileExpression());
 
             validateSymbolNoAdvance(")");
         } else if (isUnaryOp()) {
-            output.add(wrap(tokenizer.symbol()));
+            output.add(cSymbol());
 
             validateTerm();
             output.addAll(compileTerm());
         } else if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.IDENTIFIER) {
-
-            //todo look ahead
-
+            output.addAll(compileTermIdentifer());
         }
-        output.add(end("term"));
+
+        wrapOutput(output, "term");
+        return output;
+    }
+
+    private List<String> compileTermIdentifer() {
+        List<String> output = new ArrayList<>();
+        String nextToken = tokenizer.peekToken();
+
+        if (nextToken.equals("[")) {
+            output.add(cIdentifier());
+
+            validateSymbol("[");
+            output.add(cSymbol());
+
+            validateTerm();
+            output.addAll(compileExpression());
+
+            validateSymbolNoAdvance("]");
+            output.add(cSymbol());
+        } else if (nextToken.equals("(") || nextToken.equals(".")) {
+            output.addAll(compileSubroutineCall());
+        } else {
+            output.add(cIdentifier());
+        }
+
         return output;
     }
 
     private List<String> compileIfStatement() {
         List<String> output = new ArrayList<>();
-        output.add(start("ifStatement"));
 
-        output.add(wrap(tokenizer.keyword()));
+        output.add(cKeyword());
 
         output.addAll(compileConditionBlock());
 
         tokenizer.advance();
         if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.KEYWORD &&
                 tokenizer.keyword().equals("else")) {
-            output.add(wrap(tokenizer.keyword()));
+            output.add(cKeyword());
 
             validateSymbol("{");
-            output.add(tokenizer.symbol());
+            output.add(cSymbol());
 
             validateStatement();
             output.addAll(compileStatements());
@@ -463,19 +507,18 @@ class CompilationEngine {
             tokenizer.advance();
         }
 
-        output.add(end("ifStatement"));
+        wrapOutput(output, "ifStatement");
         return output;
     }
 
     private List<String> compileWhileStatement() {
         List<String> output = new ArrayList<>();
-        output.add(start("whileStatement"));
 
-        output.add(wrap(tokenizer.keyword()));
+        output.add(cKeyword());
 
         output.addAll(compileConditionBlock());
 
-        output.add(end("whileStatement"));
+        wrapOutput(output, "whileStatement");
         return output;
     }
 
@@ -483,47 +526,45 @@ class CompilationEngine {
         List<String> output = new ArrayList<>();
 
         validateSymbol("(");
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
         validateTerm();
         output.addAll(compileExpression());
 
-        validateSymbol(")");
-        output.add(wrap(tokenizer.symbol()));
+        validateSymbolNoAdvance(")");
+        output.add(cSymbol());
 
         validateSymbol("{");
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
         validateStatement();
         output.addAll(compileStatements());
 
         validateSymbolNoAdvance("}");
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
         return output;
     }
 
     private List<String> compileDoStatement() {
         List<String> output = new ArrayList<>();
-        output.add(start("doStatement"));
 
-        output.add(wrap(tokenizer.keyword()));
+        output.add(cKeyword());
 
         validateIdentifier();
         output.addAll(compileSubroutineCall());
 
         validateSymbol(";");
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
-        output.add(end("doStatement"));
+        wrapOutput(output, "doStatement");
         return output;
     }
 
     private List<String> compileReturnStatement() {
         List<String> output = new ArrayList<>();
-        output.add(start("returnStatement"));
 
-        output.add(wrap(tokenizer.keyword()));
+        output.add(cKeyword());
 
         tokenizer.advance();
         if (isTerm()) {
@@ -531,42 +572,41 @@ class CompilationEngine {
         }
 
         validateSymbolNoAdvance(";");
-        output.add(wrap(tokenizer.symbol()));
+        output.add(cSymbol());
 
-        output.add(end("returnStatement"));
+        wrapOutput(output, "returnStatement");
         return output;
     }
 
     private List<String> compileSubroutineCall() {
         List<String> output = new ArrayList<>();
-        output.add(start("subroutineCall"));
 
-        output.add(wrap(tokenizer.identifier()));
+        output.add(cIdentifier());
 
         validateSymbols(Arrays.asList(".", "("));
         if (tokenizer.symbol().equals("(")) {
-            output.add(wrap(tokenizer.symbol()));
+            output.add(cSymbol());
 
             output.addAll(compileExpressionList());
 
             validateSymbolNoAdvance(")");
-            output.add(wrap(tokenizer.symbol()));
+            output.add(cSymbol());
         } else {
-            output.add(wrap(tokenizer.symbol()));
+            output.add(cSymbol());
 
             validateIdentifier();
-            output.add(wrap(tokenizer.identifier()));
+            output.add(cIdentifier());
 
             validateSymbol("(");
-            output.add(wrap(tokenizer.symbol()));
+            output.add(cSymbol());
 
             output.addAll(compileExpressionList());
 
             validateSymbolNoAdvance(")");
-            output.add(wrap(tokenizer.symbol()));
+            output.add(cSymbol());
         }
 
-        output.add(end("subroutineCall"));
+        wrapOutput(output, "subroutineCall");
         return output;
     }
 
@@ -575,21 +615,16 @@ class CompilationEngine {
         tokenizer.advance();
 
         if (isTerm()) {
-            output.add(start("expressionList"));
-
             output.addAll(compileExpression());
 
-            tokenizer.advance();
             while (isComma()) {
-                output.add(wrap(tokenizer.symbol()));
+                output.add(cSymbol());
 
                 validateTerm();
                 output.addAll(compileExpression());
-
-                tokenizer.advance();
             }
 
-            output.add(start("expressionList"));
+            wrapOutput(output, "expressionList");
         }
 
         return output;
