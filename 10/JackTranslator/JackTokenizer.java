@@ -174,7 +174,7 @@ class JackTokenizer extends AbstractParser {
     enum TokenIdentifier {
         KEYWORD("keyword", buildRegEx(keywords)),
         IDENTIFIER("identifier", "[a-zA-Z_][\\w]*"),
-        INT_CONST("integerConstant", "\\d" ),
+        INT_CONST("integerConstant", "\\d+" ),
         STRING_CONST("stringConstant", "\".*\"" ),
         SYMBOL("symbol", symbolsRegex);
 

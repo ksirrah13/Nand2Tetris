@@ -36,9 +36,11 @@ class JackTranslator extends AbstractTranslator {
     }
 
     @Override
-    protected List<String> translate(String path, boolean addComments) {
+    protected List<String> translate(String path, boolean xmlDebugMode) {
         JackTokenizer tokenizer = JackTokenizer.get(path);
-        CompilationEngine compiler = CompilationEngine.get(tokenizer);
+        CompilationEngine compiler = xmlDebugMode
+                ? XmlCompilationEngine.get(tokenizer)
+                : CompilationEngine.get(tokenizer);
         return compiler.compile();
     }
 

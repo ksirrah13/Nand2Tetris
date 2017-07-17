@@ -5,8 +5,10 @@ import java.util.List;
 class CompilationEngine {
 
     private JackTokenizer tokenizer;
+    private JackSymbolTable symbolTable = new JackSymbolTable();
+    private String currentClass;
 
-    private CompilationEngine(JackTokenizer tokenizer) {
+    CompilationEngine(JackTokenizer tokenizer) {
         this.tokenizer = tokenizer;
     }
 
@@ -145,8 +147,26 @@ class CompilationEngine {
         return wrap(tokenizer.keyword());
     }
 
-    private String cIdentifier() {
-        return wrap(tokenizer.identifier());
+    private String cIdentifier(boolean push) {
+        return cIdentifier(tokenizer.identifier(), push);
+    }
+
+    private String cIdentifier(String id, boolean push) {
+        return push
+                ? VMWriter.writePush(this.symbolTable.kindOf(id).getName(), this.symbolTable.indexOf(id))
+                : VMWriter.writePop(this.symbolTable.kindOf(id).getName(), this.symbolTable.indexOf(id));
+    }
+
+    private String describeIdentifier(boolean define) {
+        String id = tokenizer.identifier();
+        if (this.symbolTable.typeOf(id) == null) {
+            return "(not in table) " + tokenizer.identifier();
+        }
+        String state = define ? "DEFINING: " : "ACCESSING: ";
+        return  state + id +
+                ", t: " + this.symbolTable.typeOf(id) +
+                ", k: " + this.symbolTable.kindOf(id) +
+                ", i: " + this.symbolTable.indexOf(id);
     }
 
     private String cSymbol() {
@@ -163,7 +183,7 @@ class CompilationEngine {
         if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.KEYWORD) {
             return cKeyword();
         } else {
-            return cIdentifier();
+            return wrap(tokenizer.identifier());
         }
     }
 
@@ -172,7 +192,26 @@ class CompilationEngine {
     }
 
     private String cIntVal() {
-        return wrap(tokenizer.intVal());
+        return VMWriter.writePush("constant", Integer.parseInt(tokenizer.intVal()));
+    }
+
+    private JackSymbolTable.Kind getKind() {
+        switch (tokenizer.keyword()) {
+            case "static":
+                return JackSymbolTable.Kind.STATIC;
+            case "field":
+                return JackSymbolTable.Kind.FIELD;
+            default:
+                throw new IllegalArgumentException("invalid kind: " + tokenizer.keyword());
+        }
+    }
+
+    private String getType() {
+        if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.KEYWORD) {
+            return tokenizer.keyword();
+        } else {
+            return tokenizer.identifier();
+        }
     }
 
     List<String> compile() {
@@ -182,18 +221,16 @@ class CompilationEngine {
 
     private List<String> compileClass() {
         List<String> output = new ArrayList<>();
-        output.add(cKeyword());
 
         validateIdentifier();
-        output.add(cIdentifier());
+        this.currentClass = tokenizer.identifier();
 
         validateSymbol("{");
-        output.add(cSymbol());
 
         tokenizer.advance();
         while (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.KEYWORD &&
                 Arrays.asList("static", "field").contains(tokenizer.keyword())) {
-            output.addAll(compileClassVarDec());
+            compileClassVarDec();
 
             tokenizer.advance();
         }
@@ -206,141 +243,125 @@ class CompilationEngine {
         }
 
         validateSymbolNoAdvance("}");
-        output.add(cSymbol());
 
-        wrapOutput(output, "class");
         return output;
     }
 
-    private List<String> compileClassVarDec() {
-        List<String> output = new ArrayList<>();
-        output.add(cKeyword());
+    private void compileClassVarDec() {
+        JackSymbolTable.Kind kind = getKind();
 
         validateType();
-        output.add(cType());
+        String type = getType();
 
         validateIdentifier();
-        output.add(cIdentifier());
+        this.symbolTable.define(tokenizer.identifier(), type, kind);
 
         tokenizer.advance();
-        while (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.SYMBOL &&
-                tokenizer.symbol().equals(",")) {
-            output.add(cSymbol());
-
+        while (isComma()) {
             validateIdentifier();
-            output.add(cIdentifier());
+            this.symbolTable.define(tokenizer.identifier(), type, kind);
 
             tokenizer.advance();
         }
 
         validateSymbolNoAdvance(";");
-        output.add(cSymbol());
-
-        wrapOutput(output, "classVarDec");
-        return output;
     }
 
     private List<String> compileSubroutineDec() {
         List<String> output = new ArrayList<>();
-        output.add(cKeyword());
+        this.symbolTable.startSubroutine();
+
+        String keyword = tokenizer.keyword();
 
         validateTypeAndVoid();
-        output.add(cType());
+        String type = getType();
 
         validateIdentifier();
-        output.add(cIdentifier());
-
+        String name = tokenizer.identifier();
         validateSymbol("(");
-        output.add(cSymbol());
+
+        // if method, first arg is always this
+        if (keyword.equals("method")) {
+            this.symbolTable.define("this", this.currentClass, JackSymbolTable.Kind.ARG);
+        }
 
         tokenizer.advance();
-        output.addAll(compileParameterList());
+        compileParameterList();
 
         validateSymbolNoAdvance(")");
-        output.add(cSymbol());
 
         validateSymbol("{");
-        output.addAll(compileSubroutineBody());
+        output.addAll(compileSubroutineBody(name));
 
-        wrapOutput(output, "subroutineDec");
         return output;
     }
 
-    private List<String> compileParameterList() {
-        List<String> output = new ArrayList<>();
+    private void compileParameterList() {
         if (isType()) {
-            output.add(cType());
+            JackSymbolTable.Kind kind = JackSymbolTable.Kind.ARG;
+            String type = getType();
 
             validateIdentifier();
-            output.add(cIdentifier());
+            this.symbolTable.define(tokenizer.identifier(), type, kind);
 
             tokenizer.advance();
-            while (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.SYMBOL &&
-                    tokenizer.symbol().equals(",")) {
-                output.add(cSymbol());
-
+            while (isComma()) {
                 validateType();
-                output.add(cType());
+                type = getType();
 
                 validateIdentifier();
-                output.add(cIdentifier());
+                this.symbolTable.define(tokenizer.identifier(), type, kind);
 
                 tokenizer.advance();
             }
-
-            wrapOutput(output, "parameterList");
         }
-        return output;
     }
 
-    private List<String> compileSubroutineBody() {
+    private List<String> compileSubroutineBody(String name) {
         List<String> output = new ArrayList<>();
-        output.add(cSymbol());
+        int localVarCount = 0;
 
         tokenizer.advance();
         while (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.KEYWORD &&
                 tokenizer.keyword().equals("var")) {
-            output.addAll(compileVarDec());
+            localVarCount += compileVarDec();
 
             tokenizer.advance();
         }
+
+        output.add(VMWriter.writeFunction(this.currentClass + "." + name, localVarCount));
 
         if (isStatement()) {
             output.addAll(compileStatements());
         }
 
         validateSymbolNoAdvance("}");
-        output.add(cSymbol());
 
-        wrapOutput(output, "subroutineBody");
         return output;
     }
 
-    private List<String> compileVarDec() {
-        List<String> output = new ArrayList<>();
-        output.add(cKeyword());
+    private int compileVarDec() {
+        JackSymbolTable.Kind kind = JackSymbolTable.Kind.VAR;
+        int localVarCount = 0;
 
         validateType();
-        output.add(cType());
+        String type = getType();
 
         validateIdentifier();
-        output.add(cIdentifier());
+        this.symbolTable.define(tokenizer.identifier(), type, kind);
+        localVarCount++;
 
         tokenizer.advance();
         while (isComma()) {
-            output.add(cSymbol());
-
             validateIdentifier();
-            output.add(cIdentifier());
+            this.symbolTable.define(tokenizer.identifier(), type, kind);
+            localVarCount++;
 
             tokenizer.advance();
         }
 
         validateSymbolNoAdvance(";");
-        output.add(cSymbol());
-
-        wrapOutput(output, "varDec");
-        return output;
+        return localVarCount;
     }
 
     private List<String> compileStatements() {
@@ -375,16 +396,14 @@ class CompilationEngine {
             }
         }
 
-        wrapOutput(output, "statements");
         return output;
     }
 
     private List<String> compileLetStatement() {
         List<String> output = new ArrayList<>();
-        output.add(cKeyword());
 
         validateIdentifier();
-        output.add(cIdentifier());
+        String identifer = tokenizer.identifier();
 
         tokenizer.advance();
         if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.SYMBOL &&
@@ -401,15 +420,13 @@ class CompilationEngine {
         }
 
         validateSymbolNoAdvance("=");
-        output.add(cSymbol());
 
         validateTerm();
         output.addAll(compileExpression());
 
         validateSymbolNoAdvance(";");
-        output.add(cSymbol());
+        output.add(cIdentifier(identifer, false));
 
-        wrapOutput(output, "letStatement");
         return output;
     }
 
@@ -419,15 +436,16 @@ class CompilationEngine {
 
         tokenizer.advance();
         while (isOp()) {
-            output.add(cSymbol());
+            String op = tokenizer.symbol();
 
             validateTerm();
             output.addAll(compileTerm());
 
+            output.add(VMWriter.writeArithmetic(op));
+
             tokenizer.advance();
         }
 
-        wrapOutput(output, "expression");
         return output;
     }
 
@@ -441,22 +459,19 @@ class CompilationEngine {
         } else if (isKeywordConstant()) {
             output.add(cKeyword());
         } else if (isOpenParen()) {
-            output.add(cSymbol());
-
             validateTerm();
             output.addAll(compileExpression());
 
             validateSymbolNoAdvance(")");
         } else if (isUnaryOp()) {
-            output.add(cSymbol());
-
+            String op = tokenizer.symbol();
             validateTerm();
             output.addAll(compileTerm());
+            output.add(VMWriter.writeUnaryOp(op));
         } else if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.IDENTIFIER) {
             output.addAll(compileTermIdentifer());
         }
 
-        wrapOutput(output, "term");
         return output;
     }
 
@@ -465,7 +480,7 @@ class CompilationEngine {
         String nextToken = tokenizer.peekToken();
 
         if (nextToken.equals("[")) {
-            output.add(cIdentifier());
+            output.add(cIdentifier(true));
 
             validateSymbol("[");
             output.add(cSymbol());
@@ -478,7 +493,7 @@ class CompilationEngine {
         } else if (nextToken.equals("(") || nextToken.equals(".")) {
             output.addAll(compileSubroutineCall());
         } else {
-            output.add(cIdentifier());
+            output.add(cIdentifier(true));
         }
 
         return output;
@@ -549,85 +564,95 @@ class CompilationEngine {
     private List<String> compileDoStatement() {
         List<String> output = new ArrayList<>();
 
-        output.add(cKeyword());
-
         validateIdentifier();
         output.addAll(compileSubroutineCall());
 
         validateSymbol(";");
-        output.add(cSymbol());
+        // ignore output
+        output.add(VMWriter.writePop("temp", 0));
 
-        wrapOutput(output, "doStatement");
         return output;
     }
 
     private List<String> compileReturnStatement() {
         List<String> output = new ArrayList<>();
 
-        output.add(cKeyword());
-
         tokenizer.advance();
         if (isTerm()) {
             output.addAll(compileExpression());
         }
+        else {
+            // void statement
+            output.add(VMWriter.writePush("constant", 0));
+        }
 
         validateSymbolNoAdvance(";");
-        output.add(cSymbol());
-
-        wrapOutput(output, "returnStatement");
+        output.add(VMWriter.writeReturn());
         return output;
     }
 
     private List<String> compileSubroutineCall() {
         List<String> output = new ArrayList<>();
+        Tuple<List<String>, Integer> rawOut;
 
-        output.add(cIdentifier());
+        String functionName = tokenizer.identifier();
 
         validateSymbols(Arrays.asList(".", "("));
         if (tokenizer.symbol().equals("(")) {
-            output.add(cSymbol());
-
-            output.addAll(compileExpressionList());
+            rawOut = compileExpressionList();
+            output.addAll(rawOut.getA());
 
             validateSymbolNoAdvance(")");
-            output.add(cSymbol());
         } else {
-            output.add(cSymbol());
-
             validateIdentifier();
-            output.add(cIdentifier());
+            functionName = functionName + "." + tokenizer.identifier();
 
             validateSymbol("(");
-            output.add(cSymbol());
 
-            output.addAll(compileExpressionList());
+            rawOut = compileExpressionList();
+            output.addAll(rawOut.getA());
 
             validateSymbolNoAdvance(")");
-            output.add(cSymbol());
         }
 
-        wrapOutput(output, "subroutineCall");
+        output.add(VMWriter.writeCall(functionName, rawOut.getB()));
         return output;
     }
 
-    private List<String> compileExpressionList() {
+    private Tuple<List<String>, Integer> compileExpressionList() {
         List<String> output = new ArrayList<>();
         tokenizer.advance();
+        int exprCount = 0;
 
         if (isTerm()) {
             output.addAll(compileExpression());
+            exprCount++;
 
             while (isComma()) {
-                output.add(cSymbol());
-
                 validateTerm();
                 output.addAll(compileExpression());
+                exprCount++;
             }
 
-            wrapOutput(output, "expressionList");
         }
 
-        return output;
+        return new Tuple<>(output, exprCount);
     }
 
+    class Tuple<X, Y> {
+        private final X x;
+        private final Y y;
+        Tuple(X x, Y y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        X getA() {
+            return this.x;
+        }
+
+        Y getB() {
+            return this.y;
+        }
+    }
 }
