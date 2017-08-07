@@ -8,6 +8,9 @@ class CompilationEngine {
     private JackSymbolTable symbolTable = new JackSymbolTable();
     private String currentClass;
 
+    private int whileCount = 0;
+    private int ifCount = 0;
+
     CompilationEngine(JackTokenizer tokenizer) {
         this.tokenizer = tokenizer;
     }
@@ -274,7 +277,6 @@ class CompilationEngine {
         String keyword = tokenizer.keyword();
 
         validateTypeAndVoid();
-        String type = getType();
 
         validateIdentifier();
         String name = tokenizer.identifier();
@@ -291,7 +293,7 @@ class CompilationEngine {
         validateSymbolNoAdvance(")");
 
         validateSymbol("{");
-        output.addAll(compileSubroutineBody(name));
+        output.addAll(compileSubroutineBody(name, keyword));
 
         return output;
     }
@@ -317,7 +319,7 @@ class CompilationEngine {
         }
     }
 
-    private List<String> compileSubroutineBody(String name) {
+    private List<String> compileSubroutineBody(String name, String keyword) {
         List<String> output = new ArrayList<>();
         int localVarCount = 0;
 
@@ -330,6 +332,16 @@ class CompilationEngine {
         }
 
         output.add(VMWriter.writeFunction(this.currentClass + "." + name, localVarCount));
+
+        if (keyword.equals("constructor")) {
+            int classFields = symbolTable.varCount(JackSymbolTable.Kind.FIELD);
+            output.add(VMWriter.writePush("constant", classFields));
+            output.add(VMWriter.writeCall("Memory.alloc", 1));
+            output.add(VMWriter.writePop("pointer", 0));
+        } else if (keyword.equals("method")) {
+            output.add(VMWriter.writePush("argument", 0));
+            output.add(VMWriter.writePop("pointer", 0));
+        }
 
         if (isStatement()) {
             output.addAll(compileStatements());
@@ -457,7 +469,7 @@ class CompilationEngine {
         } else if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.STRING_CONST) {
             output.add(cStringVal());
         } else if (isKeywordConstant()) {
-            output.add(cKeyword());
+            output.addAll(VMWriter.writeKeywordConstant(tokenizer.keyword()));
         } else if (isOpenParen()) {
             validateTerm();
             output.addAll(compileExpression());
@@ -502,61 +514,63 @@ class CompilationEngine {
     private List<String> compileIfStatement() {
         List<String> output = new ArrayList<>();
 
-        output.add(cKeyword());
-
-        output.addAll(compileConditionBlock());
+        int count = ifCount++;
+        output.addAll(compileConditionBlock("IF", count));
 
         tokenizer.advance();
         if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.KEYWORD &&
                 tokenizer.keyword().equals("else")) {
-            output.add(cKeyword());
+
+            output.add(VMWriter.writeGoTo("ELSE_END_" + count));
+            output.add(VMWriter.writeLabel("IF_END_" + count));
+
 
             validateSymbol("{");
-            output.add(cSymbol());
-
             validateStatement();
             output.addAll(compileStatements());
 
             validateSymbolNoAdvance("}");
 
             tokenizer.advance();
+            output.add(VMWriter.writeLabel("ELSE_END_" + count));
+        }
+        else {
+            output.add(VMWriter.writeLabel("IF_END_" + count));
         }
 
-        wrapOutput(output, "ifStatement");
         return output;
     }
 
     private List<String> compileWhileStatement() {
         List<String> output = new ArrayList<>();
 
-        output.add(cKeyword());
+        int count = whileCount++;
+        output.add(VMWriter.writeLabel("WHILE_START_" + count));
 
-        output.addAll(compileConditionBlock());
+        output.addAll(compileConditionBlock("WHILE", count));
 
-        wrapOutput(output, "whileStatement");
+        output.add(VMWriter.writeGoTo("WHILE_START_" + count));
+        output.add(VMWriter.writeLabel("WHILE_END_" + count));
         return output;
     }
 
-    private List<String> compileConditionBlock() {
+    private List<String> compileConditionBlock(String conditionType, int count) {
         List<String> output = new ArrayList<>();
 
         validateSymbol("(");
-        output.add(cSymbol());
-
         validateTerm();
         output.addAll(compileExpression());
 
         validateSymbolNoAdvance(")");
-        output.add(cSymbol());
 
+        output.add(VMWriter.writeUnaryOp("~"));
+        output.add(VMWriter.writeIf(conditionType + "_END_" + count));
         validateSymbol("{");
-        output.add(cSymbol());
 
         validateStatement();
         output.addAll(compileStatements());
 
         validateSymbolNoAdvance("}");
-        output.add(cSymbol());
 
         return output;
     }
@@ -594,28 +608,53 @@ class CompilationEngine {
     private List<String> compileSubroutineCall() {
         List<String> output = new ArrayList<>();
         Tuple<List<String>, Integer> rawOut;
+        String functionName;
 
-        String functionName = tokenizer.identifier();
+        String identifier = tokenizer.identifier();
+        String functionType = symbolTable.typeOf(identifier);
+        int argCount;
 
         validateSymbols(Arrays.asList(".", "("));
         if (tokenizer.symbol().equals("(")) {
+            // method call on same instance
+            functionName = currentClass + "." + identifier;
+
+            output.add(VMWriter.writePush("pointer", 0));
             rawOut = compileExpressionList();
             output.addAll(rawOut.getA());
+            argCount = rawOut.getB() + 1;
 
             validateSymbolNoAdvance(")");
-        } else {
+        }
+        else if (functionType != null) {
+            // method call on specified instance
             validateIdentifier();
-            functionName = functionName + "." + tokenizer.identifier();
+            functionName = functionType + "." + tokenizer.identifier();
+
+            validateSymbol("(");
+
+            output.add(cIdentifier(identifier, true));
+            rawOut = compileExpressionList();
+            output.addAll(rawOut.getA());
+            argCount = rawOut.getB() + 1;
+
+            validateSymbolNoAdvance(")");
+        }
+        else {
+            // function call
+            validateIdentifier();
+            functionName = identifier + "." + tokenizer.identifier();
 
             validateSymbol("(");
 
             rawOut = compileExpressionList();
             output.addAll(rawOut.getA());
+            argCount = rawOut.getB();
 
             validateSymbolNoAdvance(")");
         }
 
-        output.add(VMWriter.writeCall(functionName, rawOut.getB()));
+        output.add(VMWriter.writeCall(functionName, argCount));
         return output;
     }
 

@@ -97,7 +97,7 @@ abstract class AbstractTranslator {
             return Arrays.stream(dir.listFiles())
                     .map(File::getName)
                     .filter(this::hasValidExtension)
-                    .map(name -> dir.getName() + "/" + name)
+                    .map(name -> directory + "/" + name)
                     .collect(Collectors.toList());
         }
         return Collections.emptyList();

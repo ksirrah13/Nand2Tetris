@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -28,16 +29,16 @@ class VMWriter {
         }
     }
 
-    static List<String> writeLabel(String label) {
-        return Collections.emptyList();
+    static String writeLabel(String label) {
+        return "label " + label;
     }
 
-    static List<String> writeGoTo(String label) {
-        return Collections.emptyList();
+    static String writeGoTo(String label) {
+        return "goto " + label;
     }
 
-    static List<String> writeIf(String label) {
-        return Collections.emptyList();
+    static String writeIf(String label) {
+        return "if-goto " + label;
     }
 
     static String writeCall(String name, int nArgs) {
@@ -58,6 +59,21 @@ class VMWriter {
         }
         else {
             return "not";
+        }
+    }
+
+    static List<String> writeKeywordConstant(String constant) {
+        switch (constant) {
+            case "null":
+            case "false": return Collections.singletonList(writePush("constant", 0));
+            case "true": {
+                List<String> output = new ArrayList<>();
+                output.add(writePush("constant", 1));
+                output.add(writeUnaryOp("-"));
+                return output;
+            }
+            case "this": return Collections.singletonList(writePush("pointer", 0));
+            default: throw new IllegalArgumentException("invalid constant " + constant);
         }
     }
 }
