@@ -20,7 +20,7 @@ class JackTokenizer extends AbstractParser {
     private static List<String> keywords =
             Arrays.asList("class", "method", "function", "constructor", "int", "boolean", "char", "void", "var",
                     "static", "field", "let", "do", "if", "else", "while", "return", "true", "false", "null", "this");
-    private static String symbolsRegex = "[\\&\\*\\+\\(\\)\\.\\/\\,\\-\\]\\;\\~\\}\\|\\{\\>\\=\\[\\<]";
+    private static String symbolsRegex = "^([\\&\\*\\+\\(\\)\\.\\/\\,\\-\\]\\;\\~\\}\\|\\{\\>\\=\\[\\<])";
 
     private static String buildRegEx(List<String> list) {
         StringBuilder buffer = new StringBuilder();
@@ -29,7 +29,7 @@ class JackTokenizer extends AbstractParser {
             buffer.append("|");
         }
         String result = buffer.toString();
-        return result.substring(0, result.length() - 1);
+        return "^(" + result.substring(0, result.length() - 1) + ")(?=[^A-Za-z])";
     }
 
     @Override
@@ -173,9 +173,9 @@ class JackTokenizer extends AbstractParser {
 
     enum TokenIdentifier {
         KEYWORD("keyword", buildRegEx(keywords)),
-        IDENTIFIER("identifier", "[a-zA-Z_][\\w]*"),
-        INT_CONST("integerConstant", "\\d+" ),
-        STRING_CONST("stringConstant", "\".*\"" ),
+        IDENTIFIER("identifier", "^([a-zA-Z_][\\w]*)"),
+        INT_CONST("integerConstant", "^(\\d+)"),
+        STRING_CONST("stringConstant", "^(\".*\")"),
         SYMBOL("symbol", symbolsRegex);
 
         private Pattern pattern;
@@ -183,7 +183,7 @@ class JackTokenizer extends AbstractParser {
 
         TokenIdentifier(String xmlName, String regex) {
             this.xmlName = xmlName;
-            pattern = Pattern.compile("^(" + regex + ")");
+            pattern = Pattern.compile(regex);
         }
 
         Pattern getPattern() {

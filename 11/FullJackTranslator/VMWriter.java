@@ -76,5 +76,21 @@ class VMWriter {
             default: throw new IllegalArgumentException("invalid constant " + constant);
         }
     }
+
+    static List<String> writeArrayAccess(boolean pushFromArray) {
+        List<String> output = new ArrayList<>();
+        if (pushFromArray) {
+            // expects the address to pop from
+            output.add(writePop("pointer", 1));
+            output.add(writePush("that", 0));
+        } else {
+            // expects the value then address to push to from the stack
+            output.add(writePop("temp", 0));
+            output.add(writePop("pointer", 1));
+            output.add(writePush("temp", 0));
+            output.add(writePop("that", 0));
+        }
+        return output;
+    }
 }
 

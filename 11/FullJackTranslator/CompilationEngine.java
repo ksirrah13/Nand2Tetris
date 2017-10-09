@@ -176,7 +176,8 @@ class CompilationEngine {
         String symbol = tokenizer.symbol();
         if (symbol.equals("<")) {
             symbol = "lt";
-        } else if (symbol.equals(">")) {
+        }
+        else if (symbol.equals(">")) {
             symbol = "gt";
         }
         return wrap(symbol);
@@ -185,13 +186,22 @@ class CompilationEngine {
     private String cType() {
         if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.KEYWORD) {
             return cKeyword();
-        } else {
+        }
+        else {
             return wrap(tokenizer.identifier());
         }
     }
 
-    private String cStringVal() {
-        return wrap(tokenizer.stringVal());
+    private List<String> cStringVal() {
+        List<String> output = new ArrayList<>();
+        int length = tokenizer.stringVal().length();
+        output.add(VMWriter.writePush("constant", length));
+        output.add(VMWriter.writeCall("String.new", 1));
+        tokenizer.stringVal().chars().forEach(charInt -> {
+            output.add(VMWriter.writePush("constant", charInt));
+            output.add(VMWriter.writeCall("String.appendChar", 2));
+        });
+        return output;
     }
 
     private String cIntVal() {
@@ -212,7 +222,8 @@ class CompilationEngine {
     private String getType() {
         if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.KEYWORD) {
             return tokenizer.keyword();
-        } else {
+        }
+        else {
             return tokenizer.identifier();
         }
     }
@@ -338,7 +349,8 @@ class CompilationEngine {
             output.add(VMWriter.writePush("constant", classFields));
             output.add(VMWriter.writeCall("Memory.alloc", 1));
             output.add(VMWriter.writePop("pointer", 0));
-        } else if (keyword.equals("method")) {
+        }
+        else if (keyword.equals("method")) {
             output.add(VMWriter.writePush("argument", 0));
             output.add(VMWriter.writePop("pointer", 0));
         }
@@ -413,6 +425,7 @@ class CompilationEngine {
 
     private List<String> compileLetStatement() {
         List<String> output = new ArrayList<>();
+        boolean arrayAccess = false;
 
         validateIdentifier();
         String identifer = tokenizer.identifier();
@@ -420,13 +433,13 @@ class CompilationEngine {
         tokenizer.advance();
         if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.SYMBOL &&
                 tokenizer.symbol().equals("[")) {
-            output.add(cSymbol());
-
+            arrayAccess = true;
             validateTerm();
             output.addAll(compileExpression());
 
             validateSymbolNoAdvance("]");
-            output.add(cSymbol());
+            output.add(cIdentifier(identifer, true));
+            output.add(VMWriter.writeArithmetic("+"));
 
             tokenizer.advance();
         }
@@ -437,8 +450,12 @@ class CompilationEngine {
         output.addAll(compileExpression());
 
         validateSymbolNoAdvance(";");
-        output.add(cIdentifier(identifer, false));
-
+        if (arrayAccess) {
+            output.addAll(VMWriter.writeArrayAccess(false));
+        }
+        else {
+            output.add(cIdentifier(identifer, false));
+        }
         return output;
     }
 
@@ -466,21 +483,26 @@ class CompilationEngine {
 
         if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.INT_CONST) {
             output.add(cIntVal());
-        } else if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.STRING_CONST) {
-            output.add(cStringVal());
-        } else if (isKeywordConstant()) {
+        }
+        else if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.STRING_CONST) {
+            output.addAll(cStringVal());
+        }
+        else if (isKeywordConstant()) {
             output.addAll(VMWriter.writeKeywordConstant(tokenizer.keyword()));
-        } else if (isOpenParen()) {
+        }
+        else if (isOpenParen()) {
             validateTerm();
             output.addAll(compileExpression());
 
             validateSymbolNoAdvance(")");
-        } else if (isUnaryOp()) {
+        }
+        else if (isUnaryOp()) {
             String op = tokenizer.symbol();
             validateTerm();
             output.addAll(compileTerm());
             output.add(VMWriter.writeUnaryOp(op));
-        } else if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.IDENTIFIER) {
+        }
+        else if (tokenizer.tokenType() == JackTokenizer.TokenIdentifier.IDENTIFIER) {
             output.addAll(compileTermIdentifer());
         }
 
@@ -495,16 +517,17 @@ class CompilationEngine {
             output.add(cIdentifier(true));
 
             validateSymbol("[");
-            output.add(cSymbol());
-
             validateTerm();
             output.addAll(compileExpression());
-
             validateSymbolNoAdvance("]");
-            output.add(cSymbol());
-        } else if (nextToken.equals("(") || nextToken.equals(".")) {
+
+            output.add(VMWriter.writeArithmetic("+"));
+            output.addAll(VMWriter.writeArrayAccess(true));
+        }
+        else if (nextToken.equals("(") || nextToken.equals(".")) {
             output.addAll(compileSubroutineCall());
-        } else {
+        }
+        else {
             output.add(cIdentifier(true));
         }
 
