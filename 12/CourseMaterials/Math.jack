@@ -8,31 +8,127 @@
  */
 class Math {
 
+    static Array twoToThe;
+
     /** Initializes the library. */
     function void init() {
+        let twoToThe = Array.new(16);
+        do Math.initBitArray(twoToThe);
+        return;
     }
 
     /** Returns the absolute value of x. */
     function int abs(int x) {
+        if (x < 0) {
+            return -x;
+        }
+        return x;
     }
 
     /** Returns the product of x and y. */
     function int multiply(int x, int y) {
+        var boolean isNeg;
+        var int absX, absY, sum, shiftedX, j;
+
+        let isNeg = Math.isNeg(x, y);
+        let absX = Math.abs(x);
+        let absY = Math.abs(y);
+
+        let sum = 0;
+        let shiftedX = absX;
+        let j = 1;
+        while (j < 17) {
+            if (Math.bit(absY, j)) {
+                let sum = sum + shiftedX;
+            }
+            let shiftedX = shiftedX + shiftedX;
+            let j = j + 1;
+        }
+
+        if (isNeg) {
+            return -sum;
+        }
+        return sum;
     }
 
     /** Returns the integer part of x/y. */
     function int divide(int x, int y) {
+        var boolean isNeg;
+        var int q, result, absX, absY;
+
+        let isNeg = Math.isNeg(x, y);
+        let absX = Math.abs(x);
+        let absY = Math.abs(y);
+
+        if (absY > absX) {
+            return 0;
+        }
+
+        let q = Math.divide(absX, absY + absY);
+        if ((absX - (2 * q * absY)) < absY) {
+            let result = q + q;
+        }
+        else {
+            let result = q + q + 1;
+        }
+
+        if (isNeg) {
+            return -result;
+        }
+        return result;
     }
 
     /** Returns the integer part of the square root of x. */
     function int sqrt(int x) {
+        var int y, test, j, testSquared;
+
+        let y = 0;
+        let j = 7;
+
+        while (~(j < 0)) {
+            let test = (y + twoToThe[j]);
+            let testSquared = test * test;
+            if (~(testSquared > x) & (testSquared > 0)) {
+                let y = test;
+            }
+            let j = j - 1;
+        }
+        return y;
     }
 
     /** Returns the greater number. */
     function int max(int a, int b) {
+        if (a > b) {
+            return a;
+        }
+        return b;
     }
 
     /** Returns the smaller number. */
     function int min(int a, int b) {
+        if (a < b) {
+            return a;
+        }
+        return b;
     }
+
+    function void initBitArray(Array bitArray) {
+        var int i;
+        let i = 1;
+        let bitArray[0] = 1;
+        while (i < 16) {
+            let bitArray[i] = bitArray[i-1] + bitArray[i-1];
+            let i = i + 1;
+        }
+        return;
+    }
+
+    function boolean bit(int x, int j) {
+        return x & twoToThe[j-1];
+    }
+
+    function boolean isNeg(int x, int y) {
+        return ~((x < 0) = (y < 0));
+    }
+
 }
